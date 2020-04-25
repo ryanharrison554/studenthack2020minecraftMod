@@ -1,8 +1,37 @@
 import http from 'http';
 import WebSocket from 'ws';
 import dotenv from 'dotenv';
-import bot from './bot';
 import debugImport from 'debug';
+import Message from "./types/message";
+import { EventEmitter } from "events";
+
+// Create discord bot and login
+import discord from 'discord.js';
+const bot = new discord.Client();
+
+const eventEmitter = new EventEmitter();
+
+bot.once('ready', () => {
+    // tslint:disable-next-line:no-console
+    console.log('Bot Ready!');
+});
+
+bot.on('message', (message: discord.Message) => {
+    if (!message.author.bot) {
+        const data: Message = JSON.parse(message.content);
+        // Send the message to the given user
+        message.client.users.fetch(data.to)
+            .then(recipient => {
+                recipient.send(JSON.stringify({
+                    content: data.content,
+                    from: message.author.id
+                }));
+            })
+            .catch(reason => {
+                message.channel.send(reason);
+            });
+    }
+});
 
 dotenv.config();
 bot.login(process.env.CLIENT_TOKEN);
@@ -12,10 +41,18 @@ const server = http.createServer();
 const wss = new WebSocket.Server({ noServer: true });
 const PORT = normalizePort(process.env.PORT || '3000');
 
-wss.on('connection', (ws: WebSocket, request: any, client: any) => {
+wss.on('connection', (ws: WebSocket, request: http.IncomingMessage) => {
+    // First thing we want to do is send the user all the data about their connections and messages
+    const url = new URL(request.url, `http://${request.headers.host}`);
+    const userID = url.searchParams.get('id');
+    const user = bot.users.fetch(userID);
+    eventEmitter.on(`messageTo${userID}`, (message: Message) => {
+        ws.send(message);
+    });
+
     ws.on('message', (message: string) => {
         ws.send(`Received ${message}`);
-    })
+    });
 });
 
 
@@ -85,6 +122,7 @@ function authenticate(req:any, callback:any) {
     return;
 }
 
+// Authenticate the user when they first try to create a web socket
 server.on('upgrade', (request, socket, head) => {
     authenticate(request, (err: any, client: any) => {
         if (err || !client) {
