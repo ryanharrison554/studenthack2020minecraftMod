@@ -4,11 +4,16 @@ import com.corncrake.comms.InterserviceCommunication;
 import com.corncrake.comms.util.KeyboardHelper;
 import io.netty.channel.Channel;
 import io.netty.handler.codec.http.*;
+import io.netty.handler.codec.http2.Http2Connection;
+import io.netty.handler.codec.http2.Http2Settings;
+import io.netty.handler.codec.http2.HttpToHttp2ConnectionHandler;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.network.*;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
 import net.minecraft.util.text.ITextComponent;
@@ -17,6 +22,7 @@ import net.minecraft.world.World;
 import org.apache.http.HttpStatus;
 
 import javax.annotation.Nullable;
+import javax.net.ssl.HttpsURLConnection;
 import java.io.*;
 import java.net.*;
 import java.util.List;
@@ -53,12 +59,15 @@ public class SpecialItem extends Item
     {
         try {
             // Connect to the specified url
-            URL url = new URL("https://discordapp.com/");
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            URL url = new URL("https://discordapp.com/api/users/142662858214342656");
+            HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
-            conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
-            conn.setRequestProperty("Content-Language", "en-US");
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.4; en-US; rv:1.9.2.2) Gecko/20100316 Firefox/3.6.2");
+            conn.setRequestProperty("Accept", "text/html,text/css,application/xhtml+xml,application/xml");
+            conn.setRequestProperty("Accept-Language", "en-US,en-GB,en");
+            conn.setRequestProperty("Authorization", "Bot NzAzNjA3MjI1OTk3ODUyNjkz.XqTHxg.aWgmzYx5Y6vm8jHH5WjNMf7Pz1U");
             conn.setUseCaches(false);
+            conn.setDoInput(true);
             conn.setDoOutput(true);
             conn.connect();
             // Get the response
@@ -69,16 +78,15 @@ public class SpecialItem extends Item
             // Get the ack in the game
             InputStream is = conn.getInputStream();
             BufferedReader rd = new BufferedReader(new InputStreamReader(is));
-            StringBuilder response = new StringBuilder(); // or StringBuffer if Java version 5+
+            StringBuilder response = new StringBuilder();
             String line;
             while ((line = rd.readLine()) != null) {
                 response.append(line);
                 response.append('\r');
             }
             rd.close();
-            //Minecraft.getInstance().player.sendChatMessage(response.toString());
-            InterserviceCommunication.LOGGER.info(response.toString());
-
+            // Output the http header if there is one
+            InterserviceCommunication.LOGGER.debug(response.toString());
 
         }
         catch (IOException e)
