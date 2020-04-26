@@ -12,24 +12,87 @@ const bot = new discord.Client();
 const eventEmitter = new EventEmitter();
 
 bot.once('ready', () => {
-    // tslint:disable-next-line:no-console
     console.log('Bot Ready!');
 });
 
 bot.on('message', (message: discord.Message) => {
-    if (!message.author.bot) {
-        const data: Message = JSON.parse(message.content);
-        // Send the message to the given user
-        message.client.users.fetch(data.to)
-            .then(recipient => {
-                recipient.send(JSON.stringify({
-                    content: data.content,
-                    from: message.author.id
-                }));
-            })
-            .catch(reason => {
-                message.channel.send(reason);
+    if (message.content === '!sendTest') {
+        bot.users.fetch('621659602471354368').then(me => {
+            me.send(JSON.stringify({
+                to: '621659602471354368',
+                from: '621659602471354368',
+                content: 'This is a test message to yourself.'
+            }));
+        });
+        return;
+    }
+
+    let data: Message;
+    let reply: Message;
+    // Parse data
+    try {
+        data = JSON.parse(message.content);
+    } catch (error) {
+        // This means that the data isn't JSON
+        return;
+    }
+
+    // Validate data
+    if (!data.to || !data.from || !data.content) {
+        console.error(`Invalid request: ${JSON.stringify(data)}`);
+        reply = {
+            from: 'server',
+            to: message.author.id,
+            content: 'err',
+            err: 'Bad Request',
+            status: 500,
+        };
+        message.channel.send(JSON.stringify(reply)).then(value => {
+            console.log(`Sent message: ${JSON.stringify(reply)}`);
+        });
+        return;
+    }
+
+    // If the original author is not the bot, send the message to intended recipient
+    // The use of you here as author and recipient is to prevent duplicate messages being sent. Since all API
+    // calls on the front end are made using the bot, we need to send duplicates to both author and recipient so
+    // they can keep track of what messages they've sent.
+    // I.e. if the message is not a reply
+    const author = data.from;
+    const recipient = data.to;
+    const content = data.content;
+    // We want to ignore
+    if (data.to !== 'server' && !data.status && data.from !== 'you' && data.to !== 'you') {
+        bot.users.fetch(recipient).then(recipientUser => {
+                const messageToRecipient: Message = {
+                    to: 'you',
+                    from: author,
+                    content,
+                    status: undefined,
+                    err: undefined
+                };
+                recipientUser.send(JSON.stringify(messageToRecipient)).then(value => {
+                    console.log(`Sent message: ${JSON.stringify(messageToRecipient)}`);
+                    bot.users.fetch(author).then(user => {
+                        reply = {
+                            to: recipient,
+                            from: 'you',
+                            content,
+                            err: 'Message sent successfully',
+                            status: 200
+                        };
+                        user.send(JSON.stringify(reply)).then(console.log);
+                    });
+                });
             });
+    // Otherwise, when the message has come from the bot, emit an event for a WS listener
+    } else if (data.to !== 'server' && data.to !== 'you' && data.from !== 'you') {
+        bot.users.fetch(data.to).then(recipientUser => {
+            eventEmitter.emit(`messageTo${recipientUser.id}`, message.content);
+        });
+    // Otherwise, when the intended recipient is the server, it is a command
+    } else {
+        return;
     }
 });
 
@@ -45,7 +108,9 @@ wss.on('connection', (ws: WebSocket, request: http.IncomingMessage) => {
     // First thing we want to do is send the user all the data about their connections and messages
     const url = new URL(request.url, `http://${request.headers.host}`);
     const userID = url.searchParams.get('id');
-    const user = bot.users.fetch(userID);
+    bot.users.fetch(userID).then(user => {
+        const messages = user.dmChannel.messages;
+    });
     eventEmitter.on(`messageTo${userID}`, (message: Message) => {
         ws.send(message);
     });
@@ -56,9 +121,6 @@ wss.on('connection', (ws: WebSocket, request: http.IncomingMessage) => {
 });
 
 
-/**
- * Normalize a port into a number, string, or false.
- */
 
 function normalizePort(val: string) {
     const port = parseInt(val, 10);
@@ -76,10 +138,6 @@ function normalizePort(val: string) {
     return false;
 }
 
-/**
- * Event listener for HTTP server "error" event.
- */
-
 function onError(error:any) {
     if (error.syscall !== 'listen') {
         throw error;
@@ -92,12 +150,10 @@ function onError(error:any) {
     // handle specific listen errors with friendly messages
     switch (error.code) {
         case 'EACCES':
-            // tslint:disable-next-line:no-console
             console.error(bind + ' requires elevated privileges');
             process.exit(1);
             break;
         case 'EADDRINUSE':
-            // tslint:disable-next-line:no-console
             console.error(bind + ' is already in use');
             process.exit(1);
             break;
@@ -105,10 +161,6 @@ function onError(error:any) {
             throw error;
     }
 }
-
-/**
- * Event listener for HTTP server "listening" event.
- */
 
 function onListening() {
     const addr = server.address();
