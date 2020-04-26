@@ -245,6 +245,9 @@ wss.on('connection', (ws: WebSocket, request: http.IncomingMessage) => {
                     }
                 });
             }
+        } else if (message.startsWith('!send ')) {
+            const data = message.slice(0, 6);
+            bot.user.send(data);
         }
     });
 });
