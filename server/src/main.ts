@@ -27,11 +27,11 @@ bot.once('ready', () => {
 
 bot.on('guildMemberAdd', guildMember => {
     guildMember.createDM().then(dmChannel => {
-        let user = new User({
+        const user = new User({
             userID: guildMember.id,
             dmChannel: dmChannel.id,
             username: guildMember.user.username,
-            userTag: guildMember.user.tag
+            userTag: guildMember.user.tag.slice(-4)
         });
         user.save();
         dmChannel.send(JSON.stringify({
@@ -199,6 +199,34 @@ wss.on('connection', (ws: WebSocket, request: http.IncomingMessage) => {
 
     ws.on('message', (message: string) => {
         ws.send(`Received ${message}`);
+        console.log(`Received ${message} from ${userID}`);
+        if (message.startsWith('!find')) {
+            const args: string[] = message.split(' ');
+            if (args.length === 1 || args.length > 2) {
+                ws.send('ERR 1 argument needed');
+                return;
+            } else if (args[1].startsWith('#')) {
+                User.find({userTag: args[1].slice(-4)}, (err, users) => {
+                    if (err || users.length === 0) {
+                        ws.send('ERR No users matching that string');
+                        return;
+                    } else {
+                        console.log(`Sending ${users} to ${userID}`);
+                        ws.send(JSON.stringify(users));
+                    }
+                });
+            } else {
+                User.find({username: args[1]}, (err, users) => {
+                    if (err || users.length === 0) {
+                        ws.send('ERR No users matching that string');
+                        return;
+                    } else {
+                        console.log(`Sending ${users} to ${userID}`);
+                        ws.send(JSON.stringify(users));
+                    }
+                });
+            }
+        }
     });
 });
 
