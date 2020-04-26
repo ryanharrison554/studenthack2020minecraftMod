@@ -182,8 +182,11 @@ wss.on('connection', (ws: WebSocket, request: http.IncomingMessage) => {
         }
 
         // @ts-ignore
+        console.log(`User ${userID} retrieved from DB, fetching channel ${user.dmChannel}`);
+
+        // @ts-ignore
         bot.channels.fetch(user.dmChannel).then(channel => {
-            ws.send('Connected Successfully');
+            ws.send(`Connected Successfully to channel ${channel.id}`);
             // @ts-ignore
             channel.messages.fetch().then(rawMessages => {
                 const messages: Map<string, Message[]> = new Map();
@@ -205,7 +208,7 @@ wss.on('connection', (ws: WebSocket, request: http.IncomingMessage) => {
                 });
                 ws.send(JSON.stringify([...messages]));
             });
-        });
+        }).catch(console.error);
     });
 
 
