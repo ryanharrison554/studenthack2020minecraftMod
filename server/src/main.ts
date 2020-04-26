@@ -2,8 +2,18 @@ import http from 'http';
 import WebSocket from 'ws';
 import dotenv from 'dotenv';
 import debugImport from 'debug';
+import mongoose from 'mongoose';
 import Message from "./types/message";
 import { EventEmitter } from "events";
+import User from './models/User';
+
+dotenv.config();
+
+// Connect to db
+const db = process.env.MONGO_URI;
+mongoose.connect(db, { useNewUrlParser: true, useUnifiedTopology: true })
+    .then(() => console.log('MongoDB Connected'))
+    .catch((err) => console.log(`Could not connect to MongoDB: ${err}`));
 
 // Create discord bot and login
 import discord from 'discord.js';
@@ -16,6 +26,11 @@ bot.once('ready', () => {
 });
 
 bot.on('message', (message: discord.Message) => {
+    if (message.content === '!initDB') {
+        const user = new User({userID:"621659602471354368", dmChannel:"703607225997852693"});
+        user.save();
+        return
+    }
     if (message.content === '!sendTest') {
         bot.users.fetch('621659602471354368').then(me => {
             me.send(JSON.stringify({
@@ -108,7 +123,6 @@ bot.on('message', (message: discord.Message) => {
     }
 });
 
-dotenv.config();
 bot.login(process.env.CLIENT_TOKEN);
 
 const debug = debugImport('server:server');
@@ -121,22 +135,45 @@ wss.on('connection', (ws: WebSocket, request: http.IncomingMessage) => {
     const url = new URL(request.url, `http://${request.headers.host}`);
     const userID = url.searchParams.get('id');
     console.log(`New Connection: ${userID}`);
-    bot.users.fetch(userID, false).then(user => {
-        ws.send('Connected Successfully');
-        user.dmChannel.messages.fetch().then(rawMessages => {
-            const messages: Message[] = [];
-            let data;
-            rawMessages.forEach(value => {
-                try {
-                    data = JSON.parse(value.content);
-                } catch (error) {
-                    return;
-                }
-                messages.push(data);
+
+    // Get user and DMChannel
+    User.findOne({userID}, (err, user) => {
+        // Close connection if no document exists
+        if (err || !user) {
+            console.log(`Connection from ${userID} failed: ${err}`);
+            ws.send('Connection Failed');
+            ws.close();
+            return;
+        }
+
+        // @ts-ignore
+        bot.channels.fetch(user.dmChannel).then(channel => {
+            ws.send('Connected Successfully');
+            // @ts-ignore
+            channel.messages.fetch().then(rawMessages => {
+                const messages: Map<string, Message[]> = new Map();
+                rawMessages.forEach((data: discord.Message) => {
+                    let message;
+                    try {
+                        message = JSON.parse(data.content)
+                    } catch (error) {
+                        return;
+                    }
+                    if (messages.has(message.to))
+                        messages.get(message.to).push(message);
+                    else if (messages.has(message.from))
+                        messages.get(message.from).push(message);
+                    else if (message.to !== 'you')
+                        messages.set(message.to, [message]);
+                    else if (message.from !== 'you')
+                        messages.set(message.from, [message]);
+                });
+                ws.send(JSON.stringify([...messages]));
             });
-            ws.send(JSON.stringify(messages))
         });
     });
+
+
     eventEmitter.on(`messageTo${userID}`, (message: Message) => {
         ws.send(message);
     });
