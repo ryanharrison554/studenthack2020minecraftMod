@@ -2,7 +2,7 @@
   "name": "server",
   "version": "0.0.0",
   "private": true,
-  "main": "./dist/main.js",
+  "main": "dist/main.js",
   "scripts": {
     "clean": "rimraf dist/*",
     "lint": "tslint -c tslint.json -p tsconfig.json --fix",
@@ -10,7 +10,7 @@
     "build": "npm-run-all clean lint tsc",
     "dev:start": "npm-run-all build start",
     "dev": "nodemon --watch src -e ts --exec npm run dev:start",
-    "start": "node .",
+    "start": "node server",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
