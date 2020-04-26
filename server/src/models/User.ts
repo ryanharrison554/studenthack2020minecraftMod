@@ -8,6 +8,14 @@ const UserSchema = new mongoose.Schema({
     dmChannel: {
         type: String,
         required: true
+    },
+    username: {
+        type: String,
+        required: true
+    },
+    userTag: {
+        type: String,
+        required: true
     }
 });
 

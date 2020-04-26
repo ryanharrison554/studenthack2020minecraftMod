@@ -27,7 +27,12 @@ bot.once('ready', () => {
 
 bot.on('guildMemberAdd', guildMember => {
     guildMember.createDM().then(dmChannel => {
-        let user = new User({userID: guildMember.id, dmChannel: dmChannel.id});
+        let user = new User({
+            userID: guildMember.id,
+            dmChannel: dmChannel.id,
+            username: guildMember.user.username,
+            userTag: guildMember.user.tag
+        });
         user.save();
         dmChannel.send(JSON.stringify({
             from: 'server',
