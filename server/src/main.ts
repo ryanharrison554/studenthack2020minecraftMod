@@ -25,6 +25,20 @@ bot.once('ready', () => {
     console.log('Bot Ready!');
 });
 
+bot.on('guildMemberAdd', guildMember => {
+    guildMember.createDM().then(dmChannel => {
+        let user = new User({userID: guildMember.id, dmChannel: dmChannel.id});
+        user.save();
+        dmChannel.send(JSON.stringify({
+            from: 'server',
+            to: 'you',
+            content: 'Welcome to the server!',
+            err: 'welcome',
+            status: 200
+        }));
+    });
+});
+
 bot.on('message', (message: discord.Message) => {
     if (message.content === '!initDB') {
         const user = new User({userID:"621659602471354368", dmChannel:"703607225997852693"});
