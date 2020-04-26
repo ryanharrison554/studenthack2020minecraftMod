@@ -145,7 +145,23 @@ bot.on('message', (message: discord.Message) => {
 bot.login(process.env.CLIENT_TOKEN);
 
 const debug = debugImport('server:server');
-const server = http.createServer();
+const server = http.createServer((req, res) => {
+    if (req.method === 'GET') {
+        const url = new URL(req.url, `http://${req.headers.host}`);
+        console.log(`GET ${url.pathname}${url.search}`);
+        if (url.pathname === '/get_id/') {
+            User.findOne({username: url.searchParams.get('username')}, (err, user: any) =>{
+                if (err || !user) {
+                    res.writeHead(404, 'User Not Found',{"Content-Type" : 'text/plain'});
+                    res.end();
+                } else {
+                    res.writeHead(200, {"Content-Type" : 'text/plain'});
+                    res.end(user.userID);
+                }
+            })
+        }
+    }
+});
 const wss = new WebSocket.Server({ server });
 const PORT = normalizePort(process.env.PORT || '3000');
 
@@ -299,6 +315,8 @@ server.on('upgrade', (request, socket, head) => {
         });
     });
 });*/
+
+
 server.on('listening', onListening);
 server.on('error', onError);
 server.listen(PORT);
