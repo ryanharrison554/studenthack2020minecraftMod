@@ -61,8 +61,11 @@ public class SpecialItem extends Item
             // Connect to the specified url
             URL url = new URL("https://discordapp.com/api/users/142662858214342656");
             HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
+            // Required headers
             conn.setRequestMethod("GET");
+            // This is apparently important as some websites block generic Java http requests
             conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.4; en-US; rv:1.9.2.2) Gecko/20100316 Firefox/3.6.2");
+
             conn.setRequestProperty("Accept", "text/html,text/css,application/xhtml+xml,application/xml");
             conn.setRequestProperty("Accept-Language", "en-US,en-GB,en");
             conn.setRequestProperty("Authorization", "Bot NzAzNjA3MjI1OTk3ODUyNjkz.XqTHxg.aWgmzYx5Y6vm8jHH5WjNMf7Pz1U");
