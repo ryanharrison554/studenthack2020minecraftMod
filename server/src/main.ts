@@ -27,6 +27,20 @@ bot.on('message', (message: discord.Message) => {
         return;
     }
 
+    const onSendError = (reason: string) => {
+        reply = {
+            to: data.from,
+            from: 'server',
+            content: reason,
+            err: 'Message couldn\'t be delivered',
+            status: 403
+        };
+        bot.users.fetch(data.from).then(user => {
+            user.send(reply).catch(reason1 => {
+                console.error(`Couldn't deliver error message to ${data.from}. ${reason1}`);
+            });
+        });
+    };
     let data: Message;
     let reply: Message;
     // Parse data
@@ -53,6 +67,12 @@ bot.on('message', (message: discord.Message) => {
         return;
     }
 
+    // Ensure recipient exists
+    if (data.to !== 'you' && data.from !== 'you' && data.to !== 'server' && data.from !== 'server') {
+        bot.users.fetch(data.to).catch(onSendError);
+        return;
+    }
+
     // If the original author is not the bot, send the message to intended recipient
     // The use of you here as author and recipient is to prevent duplicate messages being sent. Since all API
     // calls on the front end are made using the bot, we need to send duplicates to both author and recipient so
@@ -62,7 +82,7 @@ bot.on('message', (message: discord.Message) => {
     const recipient = data.to;
     const content = data.content;
     // We want to ignore
-    if (data.to !== 'server' && !data.status && data.from !== 'you' && data.to !== 'you') {
+    if (data.from !== 'server' && data.to !== 'server' && !data.status && data.from !== 'you' && data.to !== 'you') {
         bot.users.fetch(recipient).then(recipientUser => {
                 const messageToRecipient: Message = {
                     to: 'you',
@@ -81,7 +101,7 @@ bot.on('message', (message: discord.Message) => {
                             err: 'Message sent successfully',
                             status: 200
                         };
-                        user.send(JSON.stringify(reply)).then(console.log);
+                        user.send(JSON.stringify(reply)).then(console.log).catch(onSendError);
                     });
                 });
             });
