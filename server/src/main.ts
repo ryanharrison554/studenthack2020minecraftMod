@@ -63,13 +63,8 @@ bot.on('message', (message: discord.Message) => {
         };
         message.channel.send(JSON.stringify(reply)).then(value => {
             console.log(`Sent message: ${JSON.stringify(reply)}`);
+            eventEmitter.emit(`messageTo${message.author.id}`, JSON.stringify(reply));
         });
-        return;
-    }
-
-    // Ensure recipient exists
-    if (data.to !== 'you' && data.from !== 'you' && data.to !== 'server' && data.from !== 'server') {
-        bot.users.fetch(data.to).catch(onSendError);
         return;
     }
 
@@ -93,6 +88,7 @@ bot.on('message', (message: discord.Message) => {
                 };
                 recipientUser.send(JSON.stringify(messageToRecipient)).then(value => {
                     console.log(`Sent message: ${JSON.stringify(messageToRecipient)}`);
+                    eventEmitter.emit(`messageTo${recipientUser.id}`, JSON.stringify(messageToRecipient));
                     bot.users.fetch(author).then(user => {
                         reply = {
                             to: recipient,
@@ -102,16 +98,12 @@ bot.on('message', (message: discord.Message) => {
                             status: 200
                         };
                         user.send(JSON.stringify(reply)).then(console.log).catch(onSendError);
+                        eventEmitter.emit(`messageTo${author}`, JSON.stringify(reply));
                     });
                 });
             });
-    // Otherwise, when the message has come from the bot, emit an event for a WS listener
-    } else if (data.to !== 'server' && data.to !== 'you' && data.from !== 'you') {
-        bot.users.fetch(data.to).then(recipientUser => {
-            eventEmitter.emit(`messageTo${recipientUser.id}`, message.content);
-        });
     // Otherwise, when the intended recipient is the server, it is a command
-    } else {
+    } else if (data.to === 'server' || data.from === 'server') {
         return;
     }
 });
@@ -121,15 +113,29 @@ bot.login(process.env.CLIENT_TOKEN);
 
 const debug = debugImport('server:server');
 const server = http.createServer();
-const wss = new WebSocket.Server({ noServer: true });
+const wss = new WebSocket.Server({ server });
 const PORT = normalizePort(process.env.PORT || '3000');
 
 wss.on('connection', (ws: WebSocket, request: http.IncomingMessage) => {
     // First thing we want to do is send the user all the data about their connections and messages
     const url = new URL(request.url, `http://${request.headers.host}`);
     const userID = url.searchParams.get('id');
-    bot.users.fetch(userID).then(user => {
-        const messages = user.dmChannel.messages;
+    console.log(`New Connection: ${userID}`);
+    bot.users.fetch(userID, false).then(user => {
+        ws.send('Connected Successfully');
+        user.dmChannel.messages.fetch().then(rawMessages => {
+            const messages: Message[] = [];
+            let data;
+            rawMessages.forEach(value => {
+                try {
+                    data = JSON.parse(value.content);
+                } catch (error) {
+                    return;
+                }
+                messages.push(data);
+            });
+            ws.send(JSON.stringify(messages))
+        });
     });
     eventEmitter.on(`messageTo${userID}`, (message: Message) => {
         ws.send(message);
@@ -195,6 +201,7 @@ function authenticate(req:any, callback:any) {
 }
 
 // Authenticate the user when they first try to create a web socket
+/*
 server.on('upgrade', (request, socket, head) => {
     authenticate(request, (err: any, client: any) => {
         if (err || !client) {
@@ -207,7 +214,7 @@ server.on('upgrade', (request, socket, head) => {
             wss.emit('connection', ws, request, client);
         });
     });
-});
+});*/
 server.on('listening', onListening);
 server.on('error', onError);
 server.listen(PORT);
